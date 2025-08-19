@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Media Server Stream Test - Debug Version</title>
+    <style>
+        body { font-family: sans-serif; background-color: #2c3e50; color: white; text-align: center; padding: 20px; }
+        #video-player { background-color: #000; width: 80%; max-width: 960px; margin: 20px auto; border: 2px solid #34495e; }
+        .debug-info { background-color: #34495e; padding: 15px; margin: 10px auto; max-width: 960px; text-align: left; border-radius: 5px; }
+        .status { padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .status.success { background-color: #27ae60; }
+        .status.error { background-color: #e74c3c; }
+        .status.warning { background-color: #f39c12; }
+        button { background-color: #3498db; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #2980b9; }
+    </style>
+</head>
+<body>
+    <h1>🎥 Livestream Test Player - Debug Mode</h1>
+    <div class="controls">
+        <button onclick="testConnection()">Test Server & Stream</button>
+        <button onclick="loadAndPlayStream()">Load & Play Stream</button>
+        <button onclick="stopStream()">Stop Stream</button>
+    </div>
+    <div id="status-info" class="debug-info">
+        <h3>📊 Status Information</h3>
+        <div id="status-messages">Initializing...</div>
+    </div>
+    <video id="video-player" controls muted></video>
+
+    <script src="https://cdn.jsdelivr.net/npm/flv.js/dist/flv.min.js"></script>
+    <script>
+        let flvPlayer = null;
+        const streamUrl = 'http://localhost:8000/live/stream.flv';
+        const adminUrl = 'http://localhost:5000/api/stream/status'; // The correct admin endpoint
+
+        // Function to log messages to the on-screen status panel
+        function addStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const timestamp = new Date().toLocaleTimeString();
+            const statusClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'warning';
+            statusDiv.innerHTML += `<div class="status ${statusClass}">[${timestamp}] ${message}</div>`;
+        }
+
+        // Function to test if the media server is running and if the stream is active
+        async function testConnection() {
+            addStatus('Testing media server connection...', 'warning');
+            try {
+                const response = await fetch(adminUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    addStatus('✅ Media server is accessible.', 'success');
+                    if (data.live && data.live.stream) {
+                         addStatus('✅ Stream is active on the server!', 'success');
+                    } else {
+                         addStatus('⚠️ Server is running, but the stream is not yet active.', 'warning');
+                    }
+                } else {
+                    addStatus(`❌ Media server responded with status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addStatus('❌ Cannot connect to media server. Is the backend running?', 'error');
+            }
+        }
+
+        // Function to create, load, and play the video stream
+        function loadAndPlayStream() {
+            if (flvPlayer) {
+                stopStream();
+            }
+            addStatus('Loading stream...', 'warning');
+            if (flvjs.isSupported()) {
+                const videoElement = document.getElementById('video-player');
+                flvPlayer = flvjs.createPlayer({
+                    type: 'flv',
+                    isLive: true,
+                    url: streamUrl
+                });
+                flvPlayer.attachMediaElement(videoElement);
+                flvPlayer.load();
+                flvPlayer.play();
+                addStatus('✅ Player created. Attempting to load and play video...', 'success');
+            } else {
+                addStatus('❌ FLV.js is not supported in this browser.', 'error');
+            }
+        }
+
+        // Function to stop the stream and clean up the player
+        function stopStream() {
+            if (flvPlayer) {
+                flvPlayer.destroy();
+                flvPlayer = null;
+                addStatus('✅ Stream stopped and player destroyed.', 'success');
+            }
+        }
+    </script>
+</body>
+</html>
